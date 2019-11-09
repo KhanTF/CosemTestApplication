@@ -17,57 +17,46 @@ sealed class ScannerViewModelState {
 
     data class ReceivedScannerListViewState(val devises: List<BluetoothDevice>) : ScannerViewModelState()
 
-    object BluetoothDisabledViewState : ScannerViewModelState()
-
-    data class StartScanUnavailableState(val error: Throwable) : ScannerViewModelState()
+    object StartScanUnavailableState : ScannerViewModelState()
 
 }
 
 class ScannerViewModel(private val bluetoothScanner: BluetoothScanner) : ViewModel() {
 
-    private var scannerDisposable: Disposable? = null
-
     private val scannerViewModelState = MutableLiveData<ScannerViewModelState>()
 
-    fun getScnnerViewModelState(): LiveData<ScannerViewModelState> = scannerViewModelState
+    fun getScannerViewModelState(): LiveData<ScannerViewModelState> = scannerViewModelState
 
-    private val devices =
-        Collections.synchronizedSortedSet(TreeSet<BluetoothDevice>(Comparator { o1, o2 ->
-            o1.name.orEmpty().compareTo(o2.name.orEmpty())
-        }))
+    private val devices = Collections.synchronizedSortedSet(TreeSet<BluetoothDevice>(Comparator { o1, o2 ->
+        o1.name.orEmpty().compareTo(o2.name.orEmpty())
+    }))
+
+    private val callback = object : BluetoothScanner.BluetoothScannerCallback {
+        override fun onReceive(scanResult: ScanResult) {
+            devices.add(scanResult.device)
+            scannerViewModelState.value = ScannerViewModelState.ReceivedScannerListViewState(devices.toList())
+        }
+
+        override fun onError(code: Int) {
+            scannerViewModelState.value = ScannerViewModelState.StartScanUnavailableState
+        }
+    }
 
     fun onStartScan() {
-        scannerDisposable = bluetoothScanner
-            .startScan()
-            .map(ScanResult::getDevice)
-            .map(devices::add)
-            .filter { it }
-            .debounce(200, TimeUnit.MILLISECONDS)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnError(Throwable::printStackTrace)
-            .doOnSubscribe {
-                scannerViewModelState.value = ScannerViewModelState.ReceivedScannerListViewState(emptyList())
-            }
-            .subscribe({
-                scannerViewModelState.value = ScannerViewModelState.ReceivedScannerListViewState(devices.toList())
-            }, {
-                if (it is BluetoothUnavailableException) {
-                    scannerViewModelState.value = ScannerViewModelState.BluetoothDisabledViewState
-                } else {
-                    scannerViewModelState.value = ScannerViewModelState.StartScanUnavailableState(it)
-                }
-            })
+        if (!bluetoothScanner.startScan(callback)) {
+            scannerViewModelState.value = ScannerViewModelState.StartScanUnavailableState
+        }else{
+            scannerViewModelState.value = ScannerViewModelState.ReceivedScannerListViewState(emptyList())
+        }
     }
 
     fun onStopScan() {
-        scannerDisposable?.dispose()
-        scannerViewModelState.value = ScannerViewModelState.ReceivedScannerListViewState(emptyList())
+        bluetoothScanner.stopScan(callback)
     }
 
     override fun onCleared() {
         super.onCleared()
-        scannerDisposable?.dispose()
+        bluetoothScanner.stopScan()
     }
 
 }

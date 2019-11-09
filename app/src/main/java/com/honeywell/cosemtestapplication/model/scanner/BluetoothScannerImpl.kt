@@ -6,63 +6,59 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.content.pm.PackageManager
-import io.reactivex.Completable
-import io.reactivex.Observable
-import io.reactivex.subjects.PublishSubject
 import timber.log.Timber
 
 class BluetoothScannerImpl(private val context: Context) : BluetoothScanner {
 
     private val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
 
-    private fun getScanCallback(subject: PublishSubject<ScanResult>) = object : ScanCallback() {
+    private val callbackList: MutableSet<BluetoothScanner.BluetoothScannerCallback> = mutableSetOf()
+
+    private val scanCallback = object : ScanCallback() {
 
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             super.onScanResult(callbackType, result)
             Timber.i("onScanResult : %s", result.device.address)
-            subject.onNext(result)
+            for (callback in callbackList) callback.onReceive(result)
         }
 
         override fun onBatchScanResults(results: MutableList<ScanResult>) {
             super.onBatchScanResults(results)
             Timber.i("onBatchScanResults")
-            for (result in results) subject.onNext(result)
+            for (result in results) for (callback in callbackList) callback.onReceive(result)
         }
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             Timber.i("onScanFailed : %d", errorCode)
-            subject.onError(Exception("Scan failed"))
+            for (callback in callbackList) callback.onError(errorCode)
         }
 
     }
 
-    private fun getSafeAdapter(): BluetoothAdapter {
+    private fun getBluetoothAdapter(): BluetoothAdapter? = manager.adapter
+
+    override fun startScan(callback: BluetoothScanner.BluetoothScannerCallback): Boolean {
         return if (isBluetoothHardwareAvailable() && isBluetoothEnabled()) {
-            manager.adapter
+            if (callbackList.isEmpty()) {
+                getBluetoothAdapter()?.bluetoothLeScanner?.startScan(scanCallback)
+            }
+            callbackList.add(callback)
+            true
         } else {
-            throw BluetoothUnavailableException("BLE not supported or disabled")
+            false
         }
     }
 
-    override fun startScan(): Observable<ScanResult> {
-        val subject = PublishSubject.create<ScanResult>()
-        val callback = getScanCallback(subject)
-        return Completable
-            .fromAction {
-                getSafeAdapter().bluetoothLeScanner.startScan(callback)
-            }
-            .andThen(subject)
-            .doAfterTerminate {
-                stopScan(callback)
-            }
-            .doOnDispose {
-                stopScan(callback)
-            }
+    override fun stopScan(callback: BluetoothScanner.BluetoothScannerCallback) {
+        callbackList.remove(callback)
+        if (callbackList.isEmpty()) {
+            stopScan()
+        }
     }
 
-    private fun stopScan(callback: ScanCallback) {
-        getSafeAdapter().bluetoothLeScanner.stopScan(callback)
+    override fun stopScan() {
+        getBluetoothAdapter()?.bluetoothLeScanner?.stopScan(scanCallback)
     }
 
     private fun isBluetoothEnabled(): Boolean {
