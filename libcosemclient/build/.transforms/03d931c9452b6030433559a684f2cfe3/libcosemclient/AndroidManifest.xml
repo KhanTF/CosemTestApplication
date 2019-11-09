@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="fr.andrea.libcosemclient"
+    android:versionCode="1"
+    android:versionName="1.0" >
+
+    <uses-sdk
+        android:minSdkVersion="16"
+        android:targetSdkVersion="27" />
+
+    <!-- Required for Bluetooth port -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+
+    <!-- Required for TCP/UDP ports -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-feature android:name="android.hardware.usb.host" />
+
+</manifest>

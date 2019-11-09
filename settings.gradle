@@ -1,0 +1,2 @@
+include ':app', ':libcosemclient', ':honeywell_ble'
+rootProject.name = 'CosemTestApplication'
