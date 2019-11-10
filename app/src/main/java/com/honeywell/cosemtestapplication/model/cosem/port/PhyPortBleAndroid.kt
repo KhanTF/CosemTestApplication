@@ -2,6 +2,7 @@ package com.honeywell.cosemtestapplication.model.cosem.port
 
 import android.bluetooth.BluetoothDevice
 import android.content.Context
+import com.honeywell.cosemtestapplication.model.cosem.port.manager.BleDataListener
 import com.honeywell.cosemtestapplication.model.cosem.port.manager.HoneywellPhyPortSegmentationManager
 import fr.andrea.libcosemclient.port.JPhyPort
 import no.nordicsemi.android.ble.exception.BluetoothDisabledException
@@ -10,11 +11,22 @@ import no.nordicsemi.android.ble.exception.InvalidRequestException
 import no.nordicsemi.android.ble.exception.RequestFailedException
 import java.io.Closeable
 
-class PhyPortBleAndroid(private val provider: (Context) -> PhyPortBleManagerAndroid = { HoneywellPhyPortSegmentationManager(it) }) : JPhyPort(), Closeable {
+class PhyPortBleAndroid(
+    private val bleDataListener: BleDataListener,
+    private val provider: (Context) -> PhyPortBleManagerAndroid = {
+        HoneywellPhyPortSegmentationManager(it, bleDataListener)
+    }
+) : JPhyPort(), Closeable {
 
     private var manager: PhyPortBleManagerAndroid? = null
 
-    @Throws(DeviceDisconnectedException::class, RequestFailedException::class, InvalidRequestException::class, BluetoothDisabledException::class, InterruptedException::class)
+    @Throws(
+        DeviceDisconnectedException::class,
+        RequestFailedException::class,
+        InvalidRequestException::class,
+        BluetoothDisabledException::class,
+        InterruptedException::class
+    )
     fun connect(device: BluetoothDevice, context: Context) {
         this.manager = provider(context).apply {
             connectSync(device)

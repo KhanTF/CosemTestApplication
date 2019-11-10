@@ -4,28 +4,23 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.le.ScanResult
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import com.honeywell.cosemtestapplication.model.scanner.BluetoothUnavailableException
 import com.honeywell.cosemtestapplication.model.scanner.BluetoothScanner
+import com.honeywell.cosemtestapplication.ui.base.BaseViewModel
+import io.reactivex.Completable
+import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
 import java.util.*
-import java.util.concurrent.TimeUnit
 
-sealed class ScannerViewModelState {
+class ScannerViewModel(private val bluetoothScanner: BluetoothScanner) : BaseViewModel() {
 
-    data class ReceivedScannerListViewState(val devises: List<BluetoothDevice>) : ScannerViewModelState()
+    private val scannerDevicesList = MutableLiveData<List<BluetoothDevice>>()
 
-    object StartScanUnavailableState : ScannerViewModelState()
+    private val scannerError = MutableLiveData<Boolean>()
 
-}
+    fun getScannerDevicesList(): LiveData<List<BluetoothDevice>> = scannerDevicesList
 
-class ScannerViewModel(private val bluetoothScanner: BluetoothScanner) : ViewModel() {
-
-    private val scannerViewModelState = MutableLiveData<ScannerViewModelState>()
-
-    fun getScannerViewModelState(): LiveData<ScannerViewModelState> = scannerViewModelState
+    fun getScannerError(): LiveData<Boolean> = scannerError
 
     private val devices = Collections.synchronizedSortedSet(TreeSet<BluetoothDevice>(Comparator { o1, o2 ->
         o1.name.orEmpty().compareTo(o2.name.orEmpty())
@@ -34,24 +29,22 @@ class ScannerViewModel(private val bluetoothScanner: BluetoothScanner) : ViewMod
     private val callback = object : BluetoothScanner.BluetoothScannerCallback {
         override fun onReceive(scanResult: ScanResult) {
             devices.add(scanResult.device)
-            scannerViewModelState.value = ScannerViewModelState.ReceivedScannerListViewState(devices.toList())
+            scannerDevicesList.value = devices.toList()
         }
 
         override fun onError(code: Int) {
-            scannerViewModelState.value = ScannerViewModelState.StartScanUnavailableState
+            scannerError.value = true
+            scannerDevicesList.value = emptyList()
         }
     }
 
     fun onStartScan() {
-        if (!bluetoothScanner.startScan(callback)) {
-            scannerViewModelState.value = ScannerViewModelState.StartScanUnavailableState
-        }else{
-            scannerViewModelState.value = ScannerViewModelState.ReceivedScannerListViewState(emptyList())
-        }
+        scannerDevicesList.value = emptyList()
+        scannerError.value =  !bluetoothScanner.startScan(callback)
     }
 
     fun onStopScan() {
-        bluetoothScanner.stopScan(callback)
+        bluetoothScanner.stopScan()
     }
 
     override fun onCleared() {

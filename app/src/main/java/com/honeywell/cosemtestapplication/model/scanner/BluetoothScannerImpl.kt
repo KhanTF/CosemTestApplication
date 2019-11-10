@@ -7,31 +7,36 @@ import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.content.pm.PackageManager
 import timber.log.Timber
+import java.util.concurrent.Callable
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
-class BluetoothScannerImpl(private val context: Context) : BluetoothScanner {
+class BluetoothScannerImpl(
+    private val context: Context
+) : BluetoothScanner {
 
     private val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
 
-    private val callbackList: MutableSet<BluetoothScanner.BluetoothScannerCallback> = mutableSetOf()
+    private var callback: BluetoothScanner.BluetoothScannerCallback? = null
 
     private val scanCallback = object : ScanCallback() {
 
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             super.onScanResult(callbackType, result)
             Timber.i("onScanResult : %s", result.device.address)
-            for (callback in callbackList) callback.onReceive(result)
+            callback?.onReceive(result)
         }
 
         override fun onBatchScanResults(results: MutableList<ScanResult>) {
             super.onBatchScanResults(results)
             Timber.i("onBatchScanResults")
-            for (result in results) for (callback in callbackList) callback.onReceive(result)
+            for (result in results) callback?.onReceive(result)
         }
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             Timber.i("onScanFailed : %d", errorCode)
-            for (callback in callbackList) callback.onError(errorCode)
+            callback?.onError(errorCode)
         }
 
     }
@@ -40,24 +45,20 @@ class BluetoothScannerImpl(private val context: Context) : BluetoothScanner {
 
     override fun startScan(callback: BluetoothScanner.BluetoothScannerCallback): Boolean {
         return if (isBluetoothHardwareAvailable() && isBluetoothEnabled()) {
-            if (callbackList.isEmpty()) {
-                getBluetoothAdapter()?.bluetoothLeScanner?.startScan(scanCallback)
-            }
-            callbackList.add(callback)
+            this.callback = callback
+            getBluetoothAdapter()?.bluetoothLeScanner?.startScan(scanCallback)
             true
         } else {
             false
         }
     }
 
-    override fun stopScan(callback: BluetoothScanner.BluetoothScannerCallback) {
-        callbackList.remove(callback)
-        if (callbackList.isEmpty()) {
-            stopScan()
-        }
+    override fun stopScan() {
+        this.callback = null
+        stopScanInternal()
     }
 
-    override fun stopScan() {
+    private fun stopScanInternal() {
         getBluetoothAdapter()?.bluetoothLeScanner?.stopScan(scanCallback)
     }
 

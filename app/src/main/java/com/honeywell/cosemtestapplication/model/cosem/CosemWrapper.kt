@@ -8,6 +8,8 @@ import fr.andrea.libcosemclient.port.IPort
 
 interface CosemWrapper : IDisposable {
 
+    fun setLogPath(path: String?)
+
     fun getVersion(): String
 
     fun setConfigurationParameter(var1: ConfigurationParameter, var2: Any)

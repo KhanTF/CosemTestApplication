@@ -11,6 +11,5 @@ interface BluetoothScanner {
     }
 
     fun startScan(callback: BluetoothScannerCallback) : Boolean
-    fun stopScan(callback: BluetoothScannerCallback)
     fun stopScan()
 }

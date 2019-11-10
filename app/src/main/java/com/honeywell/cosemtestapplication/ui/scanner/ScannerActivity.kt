@@ -8,17 +8,16 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
 import android.view.View
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.honeywell.cosemtestapplication.R
+import com.honeywell.cosemtestapplication.isGranted
 import com.honeywell.cosemtestapplication.ui.base.BaseActivity
 import kotlinx.android.synthetic.main.activity_scanner.*
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import androidx.core.app.ComponentActivity.ExtraData
-import androidx.core.content.ContextCompat.getSystemService
-import android.icu.lang.UCharacter.GraphemeClusterBreak.T
-import android.R.attr.name
+import com.honeywell.cosemtestapplication.ui.main.MainActivity
 
 
 class ScannerActivity : BaseActivity() {
@@ -42,25 +41,25 @@ class ScannerActivity : BaseActivity() {
 
     private val viewModel: ScannerViewModel by viewModel()
 
-    private val adapter = ScannerAdapter()
+    private val adapter = ScannerAdapter().apply {
+        listener = { MainActivity.start(this@ScannerActivity, it) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scanner)
+        setSupportActionBar(toolbar)
+        supportActionBar?.title = "Scanner"
         device_list.adapter = adapter
         device_list.layoutManager = LinearLayoutManager(this)
-        viewModel.getScannerViewModelState().observe(this::updateViewState)
-    }
-
-    private fun updateViewState(scannerViewModelState: ScannerViewModelState): Unit = when (scannerViewModelState) {
-        is ScannerViewModelState.ReceivedScannerListViewState -> {
-            error_layout.visibility = View.GONE
-            adapter.data = scannerViewModelState.devises
+        viewModel.getScannerDevicesList().observe {
+            adapter.data = it
         }
-        is ScannerViewModelState.StartScanUnavailableState -> {
-            error_layout.visibility = View.VISIBLE
-            adapter.data = emptyList()
-
+        viewModel.getScannerError().observe {
+            error_layout.visibility = if (it) View.VISIBLE else View.GONE
+        }
+        retry.setOnClickListener {
+            viewModel.onStartScan()
         }
     }
 
@@ -101,26 +100,5 @@ class ScannerActivity : BaseActivity() {
             }
         }
     }
-
-    private fun isGranted(grantResult: IntArray): Boolean {
-        for (result in grantResult) {
-            if (result != PackageManager.PERMISSION_GRANTED) return false
-        }
-        return true
-    }
-
-    @Suppress("SameParameterValue")
-    private fun isGranted(permissions: Array<String>): Boolean {
-        for (permission in permissions) {
-            if (ActivityCompat.checkSelfPermission(
-                    this, permission
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                return false
-            }
-        }
-        return true
-    }
-
 
 }

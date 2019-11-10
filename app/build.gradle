@@ -48,6 +48,8 @@ dependencies {
     //View model
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$view_model_version"
 
+    implementation 'ru.egslava:MaskedEditText:1.0.5'
+    
     //Logger
     implementation 'com.jakewharton.timber:timber:4.7.1'
 

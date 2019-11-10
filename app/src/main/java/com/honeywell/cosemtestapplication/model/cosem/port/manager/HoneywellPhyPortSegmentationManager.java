@@ -84,14 +84,18 @@ public class HoneywellPhyPortSegmentationManager extends BleManager<BleManagerCa
             synchronized (MONITOR) {
                 try {
                     if (mtuMerger.merge(dataStream, data.getValue(), indexStream++)) {
-                        rxStream.write(dataStream.toByteArray());
+                        byte[] bytes = dataStream.toByteArray();
+                        rxStream.write(bytes);
+                        if (bleDataListener != null) {
+                            bleDataListener.onReceived(bytes);
+                        }
                         dataStream = new DataStream();
                         indexStream = 0;
                     }
-                }catch (TransmitException e){
-                    if(e.getState() == TransmitException.TransmitState.ON){
+                } catch (TransmitException e) {
+                    if (e.getState() == TransmitException.TransmitState.ON) {
                         callback.resumeRequest();
-                    }else if(e.getState() == TransmitException.TransmitState.OFF){
+                    } else if (e.getState() == TransmitException.TransmitState.OFF) {
                         callback.pauseRequest();
                     }
                 }
@@ -99,10 +103,12 @@ public class HoneywellPhyPortSegmentationManager extends BleManager<BleManagerCa
         }
     };
 
+    private BleDataListener bleDataListener;
 
-    public HoneywellPhyPortSegmentationManager(@NonNull Context context) {
+    public HoneywellPhyPortSegmentationManager(@NonNull Context context, BleDataListener bleDataListener) {
         super(context);
         this.setGattCallbacks(this);
+        this.bleDataListener = bleDataListener;
     }
 
     @NonNull
@@ -115,7 +121,7 @@ public class HoneywellPhyPortSegmentationManager extends BleManager<BleManagerCa
     }
 
     public void connectSync(BluetoothDevice device) throws InterruptedException, DeviceDisconnectedException, RequestFailedException, InvalidRequestException, BluetoothDisabledException {
-        if(!isConnected()){
+        if (!isConnected()) {
             rxStream = new MemoryStream();
             counter.set(0);
         }
@@ -125,6 +131,9 @@ public class HoneywellPhyPortSegmentationManager extends BleManager<BleManagerCa
     public int write(byte[] data) {
         try {
             this.writeCharacteristic(this.txCharacteristic, data).split(mtuSplitter).await();
+            if (bleDataListener != null) {
+                bleDataListener.onSend(data);
+            }
         } catch (DeviceDisconnectedException | BluetoothDisabledException | InvalidRequestException | RequestFailedException var3) {
             this.log(6, "Failed to send data... " + var3);
             var3.printStackTrace();

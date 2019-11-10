@@ -9,6 +9,6 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 
 fun prepareCosemModule() = module {
-    single { CosemManagerImpl(androidApplication()) } bind CosemManager::class
-    single { BluetoothScannerImpl(androidApplication()) } bind BluetoothScanner::class
+    single { CosemManagerImpl(context = androidApplication(), executor = get()) } bind CosemManager::class
+    single { BluetoothScannerImpl(context = androidApplication()) } bind BluetoothScanner::class
 }

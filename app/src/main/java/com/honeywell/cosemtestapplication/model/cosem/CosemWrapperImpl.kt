@@ -9,9 +9,13 @@ import fr.andrea.libcosemclient.cosem.*
 import fr.andrea.libcosemclient.datatypes.CosemObject
 import fr.andrea.libcosemclient.port.IPort
 
-class CosemWrapperImpl(private val logPath: String? = null) : CosemWrapper {
+class CosemWrapperImpl(logPath: String? = null) : CosemWrapper {
 
-    private val cosem: ICosem = Cosem()
+    private val cosem: ICosem = Cosem(logPath)
+
+    override fun setLogPath(path: String?) {
+        cosem.setLogPath(path)
+    }
 
     override fun addDataNotificationListener(var1: IDataNotificationListener) {
         cosem.addDataNotificationListener(var1)

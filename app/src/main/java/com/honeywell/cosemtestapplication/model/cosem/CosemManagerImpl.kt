@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothDevice
 import android.content.Context
 import com.honeywell.cosemtestapplication.model.cosem.exceptions.CosemPortNotConnectedErrorException
 import com.honeywell.cosemtestapplication.model.cosem.port.PhyPortBleAndroid
+import com.honeywell.cosemtestapplication.model.cosem.port.manager.BleDataListener
 import fr.andrea.libcosemclient.auth.IAuth
 import fr.andrea.libcosemclient.cosem.*
 import fr.andrea.libcosemclient.port.PortHdlcClient
@@ -19,10 +20,9 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 class CosemManagerImpl constructor(
-    private val context: Context
+    private val context: Context,
+    private val executor: ThreadPoolExecutor
 ) : CosemManager {
-
-    private val executor = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, LinkedBlockingQueue())
 
     companion object {
         private const val EXECUTION_TIMEOUT = 8L
@@ -96,7 +96,11 @@ class CosemManagerImpl constructor(
     private val isConnected: Boolean
         get() = isPhyPortConnected && isPortConnected && isCosemAssociationOpened
 
-    private fun connectInternal(device: BluetoothDevice, auth: Auth) {
+    override fun setLogPath(path: String) {
+        cosem?.setLogPath(path)
+    }
+
+    private fun connectInternal(device: BluetoothDevice, auth: Auth, dataListener: BleDataListener) {
         Timber.i("Start connect")
         if (isConnected) {
             if (connectedDevice != device) {
@@ -108,7 +112,7 @@ class CosemManagerImpl constructor(
                 return
             }
         }
-        val phyPort = PhyPortBleAndroid()
+        val phyPort = PhyPortBleAndroid(dataListener)
         try {
             this.phyPort = phyPort
             phyPort.connect(device, context)
@@ -179,18 +183,6 @@ class CosemManagerImpl constructor(
         Timber.i("End connect")
     }
 
-    private fun reconnectInternal(): Boolean {
-        closeInternal()
-        val auth = connectedAuth
-        val device = connectedDevice
-        return if (auth != null && device != null) {
-            connectInternal(device, auth)
-            true
-        } else {
-            false
-        }
-    }
-
     private fun closeInternal() = executor.execute {
         Timber.i("Start close")
         if (isCosemAssociationOpened) try {
@@ -238,14 +230,13 @@ class CosemManagerImpl constructor(
         return null
     }
 
-    override fun connect(device: BluetoothDevice, auth: Auth) {
+    override fun connect(device: BluetoothDevice, dataListener: BleDataListener) {
         executor.submit {
-            connectInternal(device, auth)
+            connectInternal(device, AuthHighGmac(1, 1, null), dataListener)
         }.get(PAIRING_CONNECTION_TIMEOUT, TimeUnit.SECONDS)
     }
 
     override fun disconnect() {
-        executor.queue.clear()
         executor.submit {
             closeInternal()
         }.get(CONNECTION_TIMEOUT, TimeUnit.SECONDS)
@@ -254,8 +245,8 @@ class CosemManagerImpl constructor(
     override fun isConnect(): Boolean = isConnected
 
     override fun <T> execute(f: CosemWrapper.() -> T): T {
-        return executor.submit(
-            Callable { cosem?.f() ?: throw IllegalArgumentException("Illegal return value") }
-        ).get(EXECUTION_TIMEOUT, TimeUnit.SECONDS)
+        return executor.submit(Callable {
+            cosem?.f() ?: throw IllegalArgumentException("Cosem not connected")
+        }).get(EXECUTION_TIMEOUT, TimeUnit.SECONDS)
     }
 }
