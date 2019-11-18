@@ -7,5 +7,10 @@
         android:icon="@drawable/ic_share"
         android:title="Поделиться логами"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/test"
+        android:icon="@drawable/ic_test"
+        android:title="Тест"
+        app:showAsAction="ifRoom" />
 
 </menu>

@@ -9,5 +9,12 @@ import java.io.File
 
 fun prepareViewModelModule() = module {
     viewModel { ScannerViewModel(bluetoothScanner = get()) }
-    viewModel { (device: BluetoothDevice, logPath: File?) -> MainViewModel(device = device, cosemManager = get(), logPath = logPath) }
+    viewModel { (device: BluetoothDevice, logPath: File?) ->
+        MainViewModel(
+            device = device,
+            cosemManager = get(),
+            logPath = logPath,
+            excelReader = get()
+        )
+    }
 }

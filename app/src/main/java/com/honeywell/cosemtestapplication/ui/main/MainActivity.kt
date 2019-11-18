@@ -16,6 +16,7 @@ import com.honeywell.cosemtestapplication.R
 import com.honeywell.cosemtestapplication.isGranted
 import com.honeywell.cosemtestapplication.ui.base.BaseActivity
 import kotlinx.android.synthetic.main.activity_main.*
+import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.parameter.parametersOf
 import java.io.BufferedWriter
@@ -27,6 +28,7 @@ class MainActivity : BaseActivity() {
 
     companion object {
         private const val KEY_DEVICE = "KEY_DEVICE"
+        private const val REQUEST_CODE_SELECT_TEST = 1
         fun start(activity: Activity, bluetoothDevice: BluetoothDevice) {
             activity.startActivity(Intent(activity, MainActivity::class.java).putExtra(KEY_DEVICE, bluetoothDevice))
         }
@@ -107,8 +109,22 @@ class MainActivity : BaseActivity() {
                 intent.putExtra(Intent.EXTRA_STREAM, uri)
                 startActivity(intent)
             }
+        } else if (item.itemId == R.id.test) {
+            runIfSessionEnded {
+                val intent = Intent(Intent.ACTION_GET_CONTENT)
+                intent.type = "*/*"
+                startActivityForResult(intent, REQUEST_CODE_SELECT_TEST)
+            }
         }
         return true
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_CODE_SELECT_TEST) {
+            val uri = data?.data
+            if (uri != null) viewModel.onStartExcelGetTest(uri)
+        }
     }
 
     override fun onStart() {
